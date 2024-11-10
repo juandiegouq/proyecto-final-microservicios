@@ -1,5 +1,5 @@
 services:
-  # Base de datos PostgreSQL
+  # Base de datos servicio CRUD usuarios
   postgres:
     image: postgres:latest
     container_name: postgres
@@ -13,12 +13,27 @@ services:
       - "5432:5432"
     networks:
       - backend
+  
+  # Base de Datos servicio de logs
+  postgres2:
+    image: postgres:latest
+    container_name: postgres2
+    environment:
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: logsdb 
+    volumes:
+      - postgres_data2:/var/lib/postgresql/data
+    ports:
+      - "5433:5432"  
+    networks:
+      - backend
 
   # Aplicación Java (Spring Boot)
   app:
     build:
       context: .
-      dockerfile: user-crud-service/Dockerfile
+      dockerfile: user_crud_service/Dockerfile
     container_name: java_app
     environment:
       DB_HOST: postgres
@@ -33,10 +48,28 @@ services:
     depends_on:
       - postgres
       - rabbitmq
-      - logstash
+      # - logstash
     networks:
       - backend
       - elk
+
+  #Servicio de logs 
+  logs:
+    build:
+      context: .
+      dockerfile: logs_service/Dockerfile
+    container_name: logs_app
+    environment:
+      DB_URL: 'postgresql://user:password@postgres2:5432/logsdb'
+    ports:
+      - "8000:8000"
+    depends_on:
+      - postgres2
+    networks:
+      - backend
+      - elk
+
+
 
   # Servicio RabbitMQ
   rabbitmq:
@@ -52,56 +85,57 @@ services:
       - backend
 
   # Elasticsearch para almacenar los logs
-  elasticsearch:
-    image: elasticsearch:7.16.2
-    container_name: elasticsearch
-    restart: always
-    volumes:
-      - elastic_data:/usr/share/elasticsearch/data/
-    environment:
-      ES_JAVA_OPTS: "-Xmx256m -Xms256m"
-      discovery.type: single-node
-    ports:
-      - "9200:9200"
-      - "9300:9300"
-    networks:
-      - elk
+  # elasticsearch:
+  #   image: elasticsearch:7.16.2
+  #   container_name: elasticsearch
+  #   restart: always
+  #   volumes:
+  #     - elastic_data:/usr/share/elasticsearch/data/
+  #   environment:
+  #     ES_JAVA_OPTS: "-Xmx256m -Xms256m"
+  #     discovery.type: single-node
+  #   ports:
+  #     - "9200:9200"
+  #     - "9300:9300"
+  #   networks:
+  #     - elk
 
   # Logstash para procesar los logs
-  logstash:
-    image: logstash:7.16.2
-    container_name: logstash
-    restart: always
-    volumes:
-      - ./logstash/:/logstash_dir
-    command: logstash -f /logstash_dir/logstash.conf
-    depends_on:
-      - elasticsearch
-    ports:
-      - "9600:9600"
-      - "5000:5000"  # Puerto donde Logstash recibe logs
-    environment:
-      LS_JAVA_OPTS: "-Xmx256m -Xms256m"
-    networks:
-      - elk
+  # logstash:
+  #   image: logstash:7.16.2
+  #   container_name: logstash
+  #   restart: always
+  #   volumes:
+  #     - ./logstash/:/logstash_dir
+  #   command: logstash -f /logstash_dir/logstash.conf
+  #   depends_on:
+  #     - elasticsearch
+  #   ports:
+  #     - "9600:9600"
+  #     - "5000:5000"  # Puerto donde Logstash recibe logs
+  #   environment:
+  #     LS_JAVA_OPTS: "-Xmx256m -Xms256m"
+  #   networks:
+  #     - elk
 
   # Kibana para visualizar los logs
-  kibana:
-    image: kibana:7.16.2
-    container_name: kibana
-    restart: always
-    ports:
-      - "5601:5601"
-    environment:
-      ELASTICSEARCH_URL: http://elasticsearch:9200
-    depends_on:
-      - elasticsearch
-    networks:
-      - elk
+  # kibana:
+  #   image: kibana:7.16.2
+  #   container_name: kibana
+  #   restart: always
+  #   ports:
+  #     - "5601:5601"
+  #   environment:
+  #     ELASTICSEARCH_URL: http://elasticsearch:9200
+  #   depends_on:
+  #     - elasticsearch
+  #   networks:
+  #     - elk
 
 volumes:
   postgres_data: {}
-  elastic_data: {}
+  postgres_data2: {}
+  # elastic_data: {}
 
 networks:
   backend:

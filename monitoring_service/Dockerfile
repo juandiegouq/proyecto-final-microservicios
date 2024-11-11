@@ -17,5 +17,5 @@ COPY monitoring_service/. .
 EXPOSE 3000
 
 # Comando para ejecutar el servicio
-CMD ["node", "app.js"]
+CMD ["node", "index.js"]
 

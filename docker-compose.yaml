@@ -1,8 +1,8 @@
 services:
   # Base de datos servicio CRUD usuarios
-  postgres:
+  user-crud-service-database:
     image: postgres:latest
-    container_name: postgres
+    container_name: user-crud-service-database
     environment:
       POSTGRES_USER: user
       POSTGRES_PASSWORD: password
@@ -15,9 +15,9 @@ services:
       - backend
   
   # Base de Datos servicio de logs
-  postgres2:
+  logs-service-database:
     image: postgres:latest
-    container_name: postgres2
+    container_name: logs-service-database
     environment:
       POSTGRES_USER: user
       POSTGRES_PASSWORD: password
@@ -30,9 +30,9 @@ services:
       - backend
 
   # MongoDB para el servicio de monitoreo
-  mongo:
+  monitoring-service-database:
     image: mongo:latest  # Usar la imagen oficial de MongoDB
-    container_name: mongo
+    container_name: monitoring-service-database
     volumes:
       - mongo_data:/data/db  # Persistir los datos de la base de datos
     ports:
@@ -41,13 +41,13 @@ services:
       - backend
 
   # Aplicación Java (Spring Boot)
-  app:
+  user-crud-service:
     build:
       context: .
-      dockerfile: user_crud_service/Dockerfile
-    container_name: java_app
+      dockerfile: user_crud_service/Dockerfile  # Ruta con guion bajo
+    container_name: user-crud-service
     environment:
-      DB_HOST: postgres
+      DB_HOST: user-crud-service-database
       DB_PORT: 5432
       DB_NAME: mydatabase
       DB_USER: user
@@ -57,42 +57,40 @@ services:
     ports:
       - "8080:8080"
     depends_on:
-      - postgres
+      - user-crud-service-database
       - rabbitmq
-      # - logstash
     networks:
       - backend
-      - elk
 
-  #Servicio de logs 
-  logs:
+  # Servicio de logs 
+  logs-service:
     build:
       context: .
-      dockerfile: logs_service/Dockerfile
-    container_name: logs_app
+      dockerfile: logs_service/Dockerfile  # Ruta con guion bajo
+    container_name: logs-service
     environment:
-      DB_URL: 'postgresql://user:password@postgres2:5432/logsdb'
+      DB_URL: 'postgresql://user:password@logs-service-database:5432/logsdb'
     ports:
       - "8000:8000"
     depends_on:
-      - postgres2
+      - logs-service-database
     networks:
       - backend
 
   # Servicio de monitoreo
-  monitoring_service:
+  monitoring-service:
     build:
       context: .
-      dockerfile: monitoring_service/Dockerfile
-    container_name: monitoring_service
+      dockerfile: monitoring_service/Dockerfile  # Ruta con guion bajo
+    container_name: monitoring-service
     environment:
-      - MONGO_URI=mongodb://mongo:27017/monitoring  # Conexión a la base de datos MongoDB
+      - MONGO_URI=mongodb://monitoring-service-database:27017/monitoring  # Conexión a la base de datos MongoDB
       - MONITOR_INTERVAL=60000  # Intervalo de monitoreo en milisegundos
       - NOTIFICATION_EMAIL=monitoring@ejemplo.com  # Correo para notificaciones
     ports:
       - "3000:3000"  # Exponer el puerto 3000 del contenedor al puerto 3000 del host
     depends_on:
-      - mongo  # El servicio de monitoreo depende de la base de datos MongoDB
+      - monitoring-service-database  # El servicio de monitoreo depende de la base de datos MongoDB
     networks:
       - backend
     restart: always
@@ -111,60 +109,10 @@ services:
     networks:
       - backend
 
-  # Elasticsearch para almacenar los logs
-  # elasticsearch:
-  #   image: elasticsearch:7.16.2
-  #   container_name: elasticsearch
-  #   restart: always
-  #   volumes:
-  #     - elastic_data:/usr/share/elasticsearch/data/
-  #   environment:
-  #     ES_JAVA_OPTS: "-Xmx256m -Xms256m"
-  #     discovery.type: single-node
-  #   ports:
-  #     - "9200:9200"
-  #     - "9300:9300"
-  #   networks:
-  #     - elk
-
-  # Logstash para procesar los logs
-  # logstash:
-  #   image: logstash:7.16.2
-  #   container_name: logstash
-  #   restart: always
-  #   volumes:
-  #     - ./logstash/:/logstash_dir
-  #   command: logstash -f /logstash_dir/logstash.conf
-  #   depends_on:
-  #     - elasticsearch
-  #   ports:
-  #     - "9600:9600"
-  #     - "5000:5000"  # Puerto donde Logstash recibe logs
-  #   environment:
-  #     LS_JAVA_OPTS: "-Xmx256m -Xms256m"
-  #   networks:
-  #     - elk
-
-  # Kibana para visualizar los logs
-  # kibana:
-  #   image: kibana:7.16.2
-  #   container_name: kibana
-  #   restart: always
-  #   ports:
-  #     - "5601:5601"
-  #   environment:
-  #     ELASTICSEARCH_URL: http://elasticsearch:9200
-  #   depends_on:
-  #     - elasticsearch
-  #   networks:
-  #     - elk
-
 volumes:
   postgres_data: {}
   postgres_data2: {}
   mongo_data: {}
-  # elastic_data: {}
 
 networks:
   backend:
-  elk:

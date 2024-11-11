@@ -26,7 +26,6 @@ public class HealthService {
             getReadinessStatus(),
             getLivenessStatus()
         });
-        response.put("runtimeInfo", getRuntimeInfo());
         return response;
     }
 
@@ -58,17 +57,7 @@ public class HealthService {
         return liveness;
     }
 
-    // Información de tiempo de ejecución
-    private Map<String, Object> getRuntimeInfo() {
-        Map<String, Object> runtimeInfo = new HashMap<>();
-        runtimeInfo.put("version", version);
-
-        Duration uptime = Duration.between(startTime, LocalDateTime.now());
-        runtimeInfo.put("uptime", formatDuration(uptime));
-
-        return runtimeInfo;
-    }
-
+ 
     // Método para comprobar si la base de datos está accesible
     private boolean isDatabaseUp() {
         try {

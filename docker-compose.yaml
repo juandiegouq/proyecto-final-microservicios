@@ -29,6 +29,17 @@ services:
     networks:
       - backend
 
+  # MongoDB para el servicio de monitoreo
+  mongo:
+    image: mongo:latest  # Usar la imagen oficial de MongoDB
+    container_name: mongo
+    volumes:
+      - mongo_data:/data/db  # Persistir los datos de la base de datos
+    ports:
+      - "27017:27017"  # Exponer el puerto 27017 para acceso desde otros servicios
+    networks:
+      - backend
+
   # Aplicación Java (Spring Boot)
   app:
     build:
@@ -67,8 +78,24 @@ services:
       - postgres2
     networks:
       - backend
-      - elk
 
+  # Servicio de monitoreo
+  monitoring_service:
+    build:
+      context: .
+      dockerfile: monitoring_service/Dockerfile
+    container_name: monitoring_service
+    environment:
+      - MONGO_URI=mongodb://mongo:27017/monitoring  # Conexión a la base de datos MongoDB
+      - MONITOR_INTERVAL=60000  # Intervalo de monitoreo en milisegundos
+      - NOTIFICATION_EMAIL=monitoring@ejemplo.com  # Correo para notificaciones
+    ports:
+      - "3000:3000"  # Exponer el puerto 3000 del contenedor al puerto 3000 del host
+    depends_on:
+      - mongo  # El servicio de monitoreo depende de la base de datos MongoDB
+    networks:
+      - backend
+    restart: always
 
 
   # Servicio RabbitMQ
@@ -135,6 +162,7 @@ services:
 volumes:
   postgres_data: {}
   postgres_data2: {}
+  mongo_data: {}
   # elastic_data: {}
 
 networks:

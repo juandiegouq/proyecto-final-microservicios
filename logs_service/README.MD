@@ -1,3 +1,7 @@
+Servicio de Logs hecho en Python con 
+FastAPI y SQLAlchemy
+
+
 Tabla de logs:
 
 CREATE TABLE logs (

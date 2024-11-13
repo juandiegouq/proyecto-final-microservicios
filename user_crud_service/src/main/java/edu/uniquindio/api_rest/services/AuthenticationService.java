@@ -6,10 +6,12 @@ import edu.uniquindio.api_rest.models.RecuperacionClave;
 import edu.uniquindio.api_rest.models.Token;
 import edu.uniquindio.api_rest.models.Usuario;
 import edu.uniquindio.api_rest.repositories.UserRepository;
-import org.springframework.boot.autoconfigure.security.oauth2.resource.OAuth2ResourceServerProperties.Jwt;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
-import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.BadCredentialsException;
@@ -18,14 +20,18 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.RestTemplate;
 import org.springframework.security.core.Authentication;
+
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Optional;
 
 @Service
 public class AuthenticationService {
     private final UserRepository userRepository;
     private final AuthenticationManager authenticationManager;
-    private final JavaMailSender mailSender;
     private final JwtService jwtService;
     private final PasswordEncoder passwordEncoder;
 
@@ -37,7 +43,6 @@ public class AuthenticationService {
             PasswordEncoder passwordEncoder) {
         this.userRepository = userRepository;
         this.authenticationManager = authenticationManager;
-        this.mailSender = mailSender;
         this.jwtService = jwtService;
         this.passwordEncoder = passwordEncoder;
     }
@@ -83,11 +88,46 @@ public class AuthenticationService {
         }
 
         Usuario usuario = usuarioOptional.get();
-        SimpleMailMessage message = new SimpleMailMessage();
-        message.setTo(recuperacionClave.getCorreo());
-        message.setSubject("Contraseña olvidada");
-        message.setText("Su contraseña es: " + passwordEncoder.encode(usuario.getContraseña()));
-        mailSender.send(message);
-        return new ResponseEntity<>("Correo de recuperación enviado con éxito.", HttpStatus.OK);
+
+        // Crear el JSON para enviar al servicio de notificaciones
+        Map<String, Object> notificationRequest = new HashMap<>();
+        notificationRequest.put("recipients", Collections.singletonList(recuperacionClave.getCorreo()));
+        notificationRequest.put("channels", Collections.singletonList("Email"));
+
+        Map<String, String> messageContent = new HashMap<>();
+        messageContent.put("subject", "Recuperación de Contraseña");
+        messageContent.put("body", "Su contraseña es: " + passwordEncoder.encode(usuario.getContraseña()));
+        notificationRequest.put("message", messageContent);
+
+        // Configurar headers para enviar como JSON
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+
+        // Crear la entidad HTTP con el body y headers
+        HttpEntity<Map<String, Object>> request = new HttpEntity<>(notificationRequest, headers);
+
+        // Enviar la solicitud al microservicio de notificaciones
+        RestTemplate restTemplate = new RestTemplate();
+        String notificationServiceUrl = "http://notification-service:3001/notifications";
+
+        try {
+            ResponseEntity<String> response = restTemplate.exchange(
+                    notificationServiceUrl,
+                    HttpMethod.POST,
+                    request,
+                    String.class);
+
+            // Verificar si la solicitud fue exitosa
+            if (response.getStatusCode() == HttpStatus.OK) {
+                return new ResponseEntity<>("Correo de recuperación enviado con éxito.", HttpStatus.OK);
+            } else {
+                return new ResponseEntity<>("Error al enviar el correo de recuperación.",
+                        HttpStatus.INTERNAL_SERVER_ERROR);
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+            return new ResponseEntity<>("Error al conectar con el servicio de notificaciones.",
+                    HttpStatus.INTERNAL_SERVER_ERROR);
+        }
     }
 }

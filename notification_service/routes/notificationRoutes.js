@@ -10,4 +10,5 @@ router.post('/notifications/async', notificationController.createAsyncNotificati
 router.get('/notifications', notificationController.getAllNotifications);
 router.get('/notifications/:id', notificationController.getNotificationById);
 
+
 module.exports = router;

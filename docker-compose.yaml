@@ -70,6 +70,7 @@ services:
     depends_on:
       - user-crud-service-database
       - rabbitmq
+      - notification-service
     networks:
       - backend
 
@@ -114,8 +115,8 @@ services:
     container_name: notification-service
     environment:
       - MONGO_URI=mongodb://notification-service-database:27017/notification  # Conexión a la base de datos MongoDB
-      - EMAIL_USER=
-      - EMAIL_PASS=
+      - EMAIL_USER=juand.cortest@uqvirtual.edu.co
+      - EMAIL_PASS=cbc03d75
     ports:
       - "3001:3001"  # Exponer el puerto 3000 del contenedor al puerto 3000 del host
     depends_on:

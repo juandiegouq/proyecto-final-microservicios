@@ -99,9 +99,15 @@ exports.getHealthSingle = async (req, res) => {
     if (!service) {
       return res.status(404).json({ message: 'Microservicio no encontrado' });
     }
-    const healthResponse = await axios.get(`${service.endpoint}/health`);
+    
+    // Configura un tiempo límite de espera en la solicitud
+    const healthResponse = await axios.get(`${service.endpoint}/health`, { timeout: 5000 }); // 5000 ms = 5 segundos
+
+    // Si la respuesta llega antes de 5 segundos, devuelve el estado
     res.status(200).json({ name: service.name, status: healthResponse.data });
   } catch (error) {
-    return { name: service.name, status: 'Offline' };
+    // Si ocurre un error o el tiempo límite se excede, devuelve 503 para "Servicio no disponible"
+    res.status(503).json({ name: microservicio, status: 'Offline' });
   }
 };
+

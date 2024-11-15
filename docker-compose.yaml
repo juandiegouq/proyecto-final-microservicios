@@ -65,6 +65,8 @@ services:
       DB_PASSWORD: password
       RABBITMQ_HOST: rabbitmq
       RABBITMQ_PORT: 5672
+      RABBITMQ_USER: admin
+      RABBITMQ_PASS: root
     ports:
       - "8080:8080"
     depends_on:
@@ -86,6 +88,7 @@ services:
       - "8000:8000"
     depends_on:
       - logs-service-database
+      - rabbitmq
     networks:
       - backend
 
@@ -103,6 +106,7 @@ services:
       - "3000:3000"  # Exponer el puerto 3000 del contenedor al puerto 3000 del host
     depends_on:
       - monitoring-service-database  # El servicio de monitoreo depende de la base de datos MongoDB
+      - rabbitmq
     networks:
       - backend
     restart: always
@@ -114,13 +118,18 @@ services:
       dockerfile: notification_service/Dockerfile  
     container_name: notification-service
     environment:
-      - MONGO_URI=mongodb://notification-service-database:27017/notification  # Conexión a la base de datos MongoDB
-      - EMAIL_USER=juand.cortest@uqvirtual.edu.co
-      - EMAIL_PASS=cbc03d75
+      MONGO_URI: mongodb://notification-service-database:27017/notification  # Conexión a la base de datos MongoDB
+      EMAIL_USER: juand.cortest@uqvirtual.edu.co
+      EMAIL_PASS: cbc03d75
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: 5672
+      RABBITMQ_USER: admin
+      RABBITMQ_PASS: root
     ports:
       - "3001:3001"  # Exponer el puerto 3000 del contenedor al puerto 3000 del host
     depends_on:
       - notification-service-database  # El servicio de monitoreo depende de la base de datos MongoDB
+      - rabbitmq
     networks:
       - backend
     restart: always

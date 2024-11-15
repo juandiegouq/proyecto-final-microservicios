@@ -4,7 +4,7 @@ info:
   description: API para gestionar el almacenamiento y consulta de logs con opciones de filtrado, paginación y autenticación.
   version: 1.0.0
 servers:
-  - url: http://localhost:8000
+  - url: http://logs-service:8000
     description: Servidor local de desarrollo
 
 paths:
@@ -119,10 +119,4 @@ components:
               format: date-time
               description: Fecha y hora de creación del log
 
-securitySchemes:
-  bearerAuth:
-    type: http
-    scheme: bearer
-    bearerFormat: JWT
-security:
-  - bearerAuth: []
+

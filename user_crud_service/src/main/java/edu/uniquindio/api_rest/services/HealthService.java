@@ -5,6 +5,8 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import java.time.Duration;
 import java.time.LocalDateTime;
+
+
 import java.util.HashMap;
 import java.util.Map;
 
@@ -74,11 +76,4 @@ public class HealthService {
         return isDatabaseUp();
     }
 
-    // Formato de duración en una cadena amigable
-    private String formatDuration(Duration duration) {
-        long hours = duration.toHours();
-        long minutes = duration.minusHours(hours).toMinutes();
-        long seconds = duration.minusHours(hours).minusMinutes(minutes).getSeconds();
-        return String.format("%02d:%02d:%02d", hours, minutes, seconds);
-    }
 }

@@ -1,5 +1,6 @@
 package edu.uniquindio.api_rest.services;
 
+import edu.uniquindio.api_rest.configuration.RabbitMQConfig;
 import edu.uniquindio.api_rest.models.Error;
 import edu.uniquindio.api_rest.models.Login;
 import edu.uniquindio.api_rest.models.RecuperacionClave;
@@ -21,12 +22,21 @@ import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+
 import org.springframework.security.core.Authentication;
+import org.springframework.amqp.rabbit.core.RabbitMessagingTemplate;
+import org.springframework.amqp.rabbit.core.RabbitTemplate;
+import org.springframework.beans.factory.annotation.Autowired;
 
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import org.springframework.amqp.core.MessageProperties;
+import org.springframework.amqp.core.Message;
 
 @Service
 public class AuthenticationService {
@@ -34,6 +44,9 @@ public class AuthenticationService {
     private final AuthenticationManager authenticationManager;
     private final JwtService jwtService;
     private final PasswordEncoder passwordEncoder;
+
+    @Autowired
+    private RabbitTemplate rabbitTemplate;
 
     public AuthenticationService(
             UserRepository userRepository,
@@ -73,61 +86,53 @@ public class AuthenticationService {
     }
 
     // Recuperar contraseña
-    public ResponseEntity<?> recuperarContraseña(RecuperacionClave recuperacionClave) {
-        // Formato no válido, 400
-        if (recuperacionClave.getCorreo() == null) {
-            Error error = new Error("Correo electrónico no proporcionado.");
-            return new ResponseEntity<>(error, HttpStatus.BAD_REQUEST);
-        }
-
-        // Correo no encontrado, 404
-        Optional<Usuario> usuarioOptional = userRepository.findByCorreo(recuperacionClave.getCorreo());
-        if (usuarioOptional.isEmpty()) {
-            Error error = new Error("No se encontró el usuario.");
-            return new ResponseEntity<>(error, HttpStatus.NOT_FOUND);
-        }
-
-        Usuario usuario = usuarioOptional.get();
-
-        // Crear el JSON para enviar al servicio de notificaciones
-        Map<String, Object> notificationRequest = new HashMap<>();
-        notificationRequest.put("recipients", Collections.singletonList(recuperacionClave.getCorreo()));
-        notificationRequest.put("channels", Collections.singletonList("Email"));
-
-        Map<String, String> messageContent = new HashMap<>();
-        messageContent.put("subject", "Recuperación de Contraseña");
-        messageContent.put("body", "Su contraseña es: " + passwordEncoder.encode(usuario.getContraseña()));
-        notificationRequest.put("message", messageContent);
-
-        // Configurar headers para enviar como JSON
-        HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.APPLICATION_JSON);
-
-        // Crear la entidad HTTP con el body y headers
-        HttpEntity<Map<String, Object>> request = new HttpEntity<>(notificationRequest, headers);
-
-        // Enviar la solicitud al microservicio de notificaciones
-        RestTemplate restTemplate = new RestTemplate();
-        String notificationServiceUrl = "http://notification-service:3001/notifications";
-
-        try {
-            ResponseEntity<String> response = restTemplate.exchange(
-                    notificationServiceUrl,
-                    HttpMethod.POST,
-                    request,
-                    String.class);
-
-            // Verificar si la solicitud fue exitosa
-            if (response.getStatusCode() == HttpStatus.OK) {
-                return new ResponseEntity<>("Correo de recuperación enviado con éxito.", HttpStatus.OK);
-            } else {
-                return new ResponseEntity<>("Error al enviar el correo de recuperación.",
-                        HttpStatus.INTERNAL_SERVER_ERROR);
-            }
-        } catch (Exception e) {
-            e.printStackTrace();
-            return new ResponseEntity<>("Error al conectar con el servicio de notificaciones.",
-                    HttpStatus.INTERNAL_SERVER_ERROR);
-        }
+public ResponseEntity<?> recuperarContraseña(RecuperacionClave recuperacionClave) {
+    // Formato no válido, 400
+    if (recuperacionClave.getCorreo() == null) {
+        Error error = new Error("Correo electrónico no proporcionado.");
+        return new ResponseEntity<>(error, HttpStatus.BAD_REQUEST);
     }
+
+    // Correo no encontrado, 404
+    Optional<Usuario> usuarioOptional = userRepository.findByCorreo(recuperacionClave.getCorreo());
+    if (usuarioOptional.isEmpty()) {
+        Error error = new Error("No se encontró el usuario.");
+        return new ResponseEntity<>(error, HttpStatus.NOT_FOUND);
+    }
+
+    Usuario usuario = usuarioOptional.get();
+
+    // Crear el mensaje para enviar a RabbitMQ
+    Map<String, Object> notificationRequest = new HashMap<>();
+    notificationRequest.put("recipients", Collections.singletonList(recuperacionClave.getCorreo()));
+    notificationRequest.put("channels", Collections.singletonList("Email"));
+
+    Map<String, String> messageContent = new HashMap<>();
+    messageContent.put("subject", "Recuperación de Contraseña");
+    messageContent.put("body", "Su contraseña es: " + usuario.getContraseña());
+    notificationRequest.put("message", messageContent);
+
+    try {
+        // Convertir el mensaje a JSON con ObjectMapper
+        ObjectMapper objectMapper = new ObjectMapper();
+        String jsonMessage = objectMapper.writeValueAsString(notificationRequest);
+
+        // Crear un mensaje de RabbitMQ con el tipo adecuado
+        MessageProperties messageProperties = new MessageProperties();
+        messageProperties.setContentType("application/json");
+
+        // Crear el mensaje con el JSON y las propiedades
+        Message message = new Message(jsonMessage.getBytes(), messageProperties);
+
+        // Enviar el mensaje a la cola
+        rabbitTemplate.convertAndSend(RabbitMQConfig.QUEUE_NAME, message);
+        return new ResponseEntity<>("Correo de recuperación enviado con éxito.", HttpStatus.OK);
+    } catch (Exception e) {
+        e.printStackTrace();
+        return new ResponseEntity<>("Error al conectar con el sistema de mensajería.",
+                HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+
+ }
+    
 }

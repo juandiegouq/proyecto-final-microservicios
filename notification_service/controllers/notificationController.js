@@ -1,78 +1,67 @@
+// notificationController.js
 const notificationService = require('../services/notificationService');
-const Notification = require('../models/Notification');
+const healthService = require('../services/healthService');  // Importa el servicio de salud
 
-// Crear notificación y enviarla de forma síncrona
+// Crear una notificación sincrónica
 exports.createSyncNotification = async (req, res) => {
-  const { recipients, channels, message } = req.body;
-
   try {
-    const notification = new Notification({
-      recipients,
-      channels,
-      message,
-      state: 'pending',
-    });
-
-    await notification.save();
-
-    // Enviar la notificación de forma síncrona
-    const result = await notificationService.sendSyncNotification(notification);
-
-    res.status(200).json({
-      message: 'Notificación enviada con éxito',
-      notification,
-      result
-    });
+    const notificationData = req.body;
+    const notification = await notificationService.sendSyncNotification(notificationData);
+    res.status(200).json(notification);
   } catch (error) {
-    res.status(500).json({ message: 'Error al enviar la notificación', error });
-  }
-};
-
-// Crear notificación y enviarla de forma asíncrona
-exports.createAsyncNotification = async (req, res) => {
-  const { recipients, channels, message } = req.body;
-
-  try {
-    const notification = new Notification({
-      recipients,
-      channels,
-      message,
-      state: 'pending',
-    });
-
-    await notification.save();
-
-    // Enviar la notificación de forma asíncrona
-    notificationService.sendAsyncNotification(notification);
-
-    res.status(200).json({
-      message: 'Notificación enviada con éxito (asíncrona)',
-      notification
-    });
-  } catch (error) {
-    res.status(500).json({ message: 'Error al enviar la notificación', error });
+    res.status(500).json({ error: error.message });
   }
 };
 
 // Obtener todas las notificaciones
 exports.getAllNotifications = async (req, res) => {
   try {
-    const notifications = await Notification.find();
+    const notifications = await notificationService.getAllNotifications();
     res.status(200).json(notifications);
   } catch (error) {
-    res.status(500).json({ message: 'Error al obtener las notificaciones', error });
+    res.status(500).json({ error: error.message });
   }
 };
 
-// Obtener una notificación específica
+// Obtener una notificación por ID
 exports.getNotificationById = async (req, res) => {
   try {
-    const notification = await Notification.findById(req.params.id);
-    if (!notification) {
-      return res.status(404).json({ message: 'Notificación no encontrada' });
-    }
+    const notification = await notificationService.getNotificationById(req.params.id);
     res.status(200).json(notification);
   } catch (error) {
-    res.status(500).json({ message: 'Error al obtener la notificación', error });
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// Ruta /health
+exports.getHealth = async (req, res) => {
+  try {
+    const health = await healthService.getHealth();
+    res.json(health);
+  } catch (error) {
+    console.error('Error al obtener el estado de salud:', error);
+    res.status(500).json({ status: 'DOWN' });
+  }
+};
+
+// Ruta /health/ready
+exports.getReadiness = async (req, res) => {
+  try {
+    const readiness = await healthService.checkReadiness();
+    res.json(readiness);
+  } catch (error) {
+    console.error('Error al comprobar si el servicio está listo:', error);
+    res.status(500).json({ status: 'DOWN', message: 'Not ready' });
+  }
+};
+
+// Ruta /health/live
+exports.getLiveness = async (req, res) => {
+  try {
+    const liveness = await healthService.checkLiveness();
+    res.json(liveness);
+  } catch (error) {
+    console.error('Error al comprobar si el servicio está vivo:', error);
+    res.status(500).json({ status: 'DOWN', message: 'Not live' });
   }
 };

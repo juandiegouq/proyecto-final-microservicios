@@ -19,7 +19,7 @@ const swaggerOptions = {
       description: 'API para gestionar notificaciones',
     },
   },
-  apis: ['./routes/*.js'], // Ruta donde están las rutas de la API (ajusta según tu estructura de archivos)
+  apis: ['./routes/*.js'], 
 };
 
 // Generar la especificación de OpenAPI
